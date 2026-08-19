@@ -63,18 +63,28 @@ test("Copilot child environment excludes core credentials and user homes", () =>
   assert.equal("DATABASE_URL" in env, false);
 });
 
-test("Copilot BYOK provider prefers Anthropic over OpenAI", () => {
+test("Copilot BYOK provider routes Anthropic keys through the OpenAI-compatible endpoint", () => {
   const provider = copilotByokProvider({
     ANTHROPIC_API_KEY: "sk-ant",
     OPENAI_API_KEY: "sk-openai",
   });
-  assert.equal(provider?.type, "anthropic");
+  assert.equal(provider?.type, "openai");
+  assert.equal(provider?.baseUrl, "https://api.anthropic.com/v1");
   assert.equal(provider?.apiKey, "sk-ant");
+});
+
+test("Copilot BYOK provider respects ANTHROPIC_BASE_URL override", () => {
+  const provider = copilotByokProvider({
+    ANTHROPIC_API_KEY: "sk-ant",
+    ANTHROPIC_BASE_URL: "https://custom.anthropic.example.com/",  });
+  assert.equal(provider?.type, "openai");
+  assert.equal(provider?.baseUrl, "https://custom.anthropic.example.com/v1");
 });
 
 test("Copilot BYOK provider falls back to OpenAI when only an OpenAI key is present", () => {
   const provider = copilotByokProvider({ OPENAI_API_KEY: "sk-openai" });
   assert.equal(provider?.type, "openai");
+  assert.equal(provider?.baseUrl, "https://api.openai.com/v1");
   assert.equal(provider?.apiKey, "sk-openai");
   assert.equal((provider as { wireApi?: string })?.wireApi, "responses");
 });

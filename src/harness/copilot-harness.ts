@@ -129,12 +129,18 @@ export function copilotChildEnv(source: NodeJS.ProcessEnv, jail: string): NodeJS
 }
 
 export function copilotByokProvider(env: NodeJS.ProcessEnv): ProviderConfig | undefined {
-  if (env.ANTHROPIC_API_KEY)
-    return { type: "anthropic", baseUrl: "https://api.anthropic.com", apiKey: env.ANTHROPIC_API_KEY };
+  if (env.ANTHROPIC_API_KEY) {
+    const baseUrl = (env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com").replace(/\/+$/, "");
+    return {
+      type: "openai",
+      baseUrl: `${baseUrl}/v1`,
+      apiKey: env.ANTHROPIC_API_KEY,
+    };
+  }
   if (env.OPENAI_API_KEY)
     return {
       type: "openai",
-      baseUrl: "https://api.openai.com/v1",
+      baseUrl: (env.OPENAI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/+$/, ""),
       apiKey: env.OPENAI_API_KEY,
       wireApi: "responses",
     };
