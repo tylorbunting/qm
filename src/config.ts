@@ -31,7 +31,7 @@ export interface Config {
   databaseUrl?: string;
   databaseCaCert?: string;
   databaseCaCertFile?: string;
-  harness: "mock" | "pi" | "opencode" | "codex" | "claude";
+  harness: "mock" | "pi" | "opencode" | "codex" | "claude" | "copilot";
   securityPosture: SecurityPosture;
   sandboxBackend: "aws" | "local" | "sprites" | "smolmachines";
   sandboxSecondaryBackend?: "aws" | "local" | "sprites" | "smolmachines";
@@ -46,6 +46,9 @@ export interface Config {
   claudeModel?: string;
   claudeBinPath?: string;
   claudeProcessEnv: NodeJS.ProcessEnv;
+  copilotModel?: string;
+  copilotBinPath?: string;
+  copilotProcessEnv: NodeJS.ProcessEnv;
   detectModelId?: string;
   titleModelId?: string;
   judgeModelId?: string;
@@ -151,6 +154,7 @@ export interface Config {
 export function configuredModelForHarness(config: Config, harness: string): string | undefined {
   if (harness === "codex") return config.codexModel;
   if (harness === "claude") return config.claudeModel;
+  if (harness === "copilot") return config.copilotModel;
   if (harness === "opencode") return config.opencodeModel;
   return config.modelId;
 }
@@ -503,10 +507,17 @@ function orgBrandingFromEnv(env: NodeJS.ProcessEnv): Config["brandingDefault"] {
 function harnessEnvStrict(value: string | undefined): Config["harness"] {
   if (value === undefined || value.trim() === "") return "mock";
   const harness = value.trim();
-  if (harness === "mock" || harness === "pi" || harness === "opencode" || harness === "codex" || harness === "claude")
+  if (
+    harness === "mock" ||
+    harness === "pi" ||
+    harness === "opencode" ||
+    harness === "codex" ||
+    harness === "claude" ||
+    harness === "copilot"
+  )
     return harness;
   throw new Error(
-    `HARNESS=${JSON.stringify(value)} is not recognized — use mock, pi, opencode, codex, or claude, or unset it.`,
+    `HARNESS=${JSON.stringify(value)} is not recognized — use mock, pi, opencode, codex, claude, or copilot, or unset it.`,
   );
 }
 
@@ -715,6 +726,27 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       "CLAUDE_CODE_OAUTH_TOKEN",
     ].flatMap((name) => (env[name] === undefined ? [] : [[name, env[name]]])),
   ) as NodeJS.ProcessEnv;
+  const copilotProcessEnv = Object.fromEntries(
+    [
+      "PATH",
+      "TMPDIR",
+      "LANG",
+      "LC_ALL",
+      "SSL_CERT_FILE",
+      "SSL_CERT_DIR",
+      "NODE_EXTRA_CA_CERTS",
+      "HTTP_PROXY",
+      "HTTPS_PROXY",
+      "NO_PROXY",
+      "ALL_PROXY",
+      "HOME",
+      "GH_TOKEN",
+      "GITHUB_TOKEN",
+      "COPILOT_GITHUB_TOKEN",
+      "ANTHROPIC_API_KEY",
+      "OPENAI_API_KEY",
+    ].flatMap((name) => (env[name] === undefined ? [] : [[name, env[name]]])),
+  ) as NodeJS.ProcessEnv;
   if (providerBaseUrls.openai) codexProcessEnv.OPENAI_BASE_URL = providerBaseUrls.openai;
   if (providerBaseUrls.anthropic) claudeProcessEnv.ANTHROPIC_BASE_URL = providerBaseUrls.anthropic;
   const turnWallClockMs =
@@ -765,6 +797,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     ...(env.CLAUDE_MODEL ? { claudeModel: env.CLAUDE_MODEL } : {}),
     ...(env.CLAUDE_BIN ? { claudeBinPath: env.CLAUDE_BIN } : {}),
     claudeProcessEnv,
+    ...(env.COPILOT_MODEL ? { copilotModel: env.COPILOT_MODEL } : {}),
+    ...(env.COPILOT_BIN ? { copilotBinPath: env.COPILOT_BIN } : {}),
+    copilotProcessEnv,
     ...(env.PI_DETECT_MODEL ? { detectModelId: env.PI_DETECT_MODEL } : {}),
     ...(env.PI_TITLE_MODEL ? { titleModelId: env.PI_TITLE_MODEL } : {}),
     ...(env.PI_JUDGE_MODEL ? { judgeModelId: env.PI_JUDGE_MODEL } : {}),

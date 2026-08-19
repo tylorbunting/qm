@@ -7,8 +7,9 @@ const getModel = getBuiltinModel as unknown as (provider: string, id: string) =>
 
 export const DEFAULT_AGENT_MODEL_ID = "claude-opus-5";
 export const DEFAULT_CODEX_MODEL_ID = "gpt-5.6-sol";
+export const DEFAULT_COPILOT_MODEL_ID = "claude-sonnet-5";
 export const THINKING_LEVELS = ["auto", "low", "medium", "high", "xhigh", "max", "ultracode"] as const;
-export const HARNESS_IDS = ["pi", "opencode", "codex", "claude", "mock"] as const;
+export const HARNESS_IDS = ["pi", "opencode", "codex", "claude", "copilot", "mock"] as const;
 export type HarnessId = (typeof HARNESS_IDS)[number];
 
 export const MODEL_PROVIDERS = ["anthropic", "openai", "openrouter"] as const;
@@ -176,8 +177,9 @@ export function contextTokenBudgetForModel(id: string): number | undefined {
 export function modelSupportedByHarness(id: string | undefined, harness: string): boolean {
   if (!id) return false;
   if (isCustomModelId(id) && !REGISTRY_BY_ID.has(id))
-    return harness === "pi" || harness === "opencode" || harness === "mock";
-  if (harness === "pi" || harness === "opencode" || harness === "mock") return Boolean(resolveModel(id));
+    return harness === "pi" || harness === "opencode" || harness === "copilot" || harness === "mock";
+  if (harness === "pi" || harness === "opencode" || harness === "copilot" || harness === "mock")
+    return Boolean(resolveModel(id));
   const provider = resolveModel(id)?.provider;
   if (harness === "claude") return provider === "anthropic" || /^claude-/i.test(id);
   if (harness === "codex") return provider === "openai" || /^(?:gpt-|o\d|codex|openai\/)/i.test(id);
@@ -190,7 +192,12 @@ export function defaultModelForHarness(
   providers?: ModelProviderAvailability,
 ): string {
   if (configured && modelSupportedByHarness(configured, harness)) return configured;
-  const preferred = harness === "codex" ? DEFAULT_CODEX_MODEL_ID : DEFAULT_AGENT_MODEL_ID;
+  const preferred =
+    harness === "codex"
+      ? DEFAULT_CODEX_MODEL_ID
+      : harness === "copilot"
+        ? DEFAULT_COPILOT_MODEL_ID
+        : DEFAULT_AGENT_MODEL_ID;
   if (!providers || modelServiceable(preferred, providers)) return preferred;
   const servable = SELECTABLE_BASE_MODELS.find(
     (model) => modelSupportedByHarness(model.id, harness) && modelServiceable(model.id, providers),

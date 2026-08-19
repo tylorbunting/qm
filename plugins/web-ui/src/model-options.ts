@@ -63,6 +63,7 @@ const DEFAULT_CODEX_MODEL_IDS: readonly string[] = ["gpt-5.6-sol", "gpt-5.6-terr
 function defaultModelIdsForHarness(harnessId: string): readonly string[] {
   if (harnessId === "codex") return DEFAULT_CODEX_MODEL_IDS;
   if (harnessId === "claude") return DEFAULT_PICKER_MODEL_IDS;
+  if (harnessId === "copilot") return [...DEFAULT_PICKER_MODEL_IDS, ...DEFAULT_CODEX_MODEL_IDS];
   return [...DEFAULT_PICKER_MODEL_IDS, ...DEFAULT_CODEX_MODEL_IDS];
 }
 
@@ -71,6 +72,7 @@ const HARNESS_LABELS: Record<string, string> = {
   opencode: "OpenCode",
   codex: "Codex",
   claude: "Claude Code",
+  copilot: "Copilot",
   mock: "Mock",
 };
 
@@ -213,7 +215,13 @@ export function harnessSupportsFastMode(harnessId: string): boolean {
 }
 
 export function harnessSupportsSteer(harnessId: string): boolean {
-  return harnessId === "pi" || harnessId === "claude" || harnessId === "codex" || harnessId === "opencode";
+  return (
+    harnessId === "pi" ||
+    harnessId === "claude" ||
+    harnessId === "codex" ||
+    harnessId === "opencode" ||
+    harnessId === "copilot"
+  );
 }
 
 export function defaultEffortForModel(model: Model<Api>): EffortLevel {
