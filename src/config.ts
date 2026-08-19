@@ -744,11 +744,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       "GITHUB_TOKEN",
       "COPILOT_GITHUB_TOKEN",
       "ANTHROPIC_API_KEY",
+      "ANTHROPIC_BASE_URL",
       "OPENAI_API_KEY",
+      "OPENAI_BASE_URL",
     ].flatMap((name) => (env[name] === undefined ? [] : [[name, env[name]]])),
   ) as NodeJS.ProcessEnv;
   if (providerBaseUrls.openai) codexProcessEnv.OPENAI_BASE_URL = providerBaseUrls.openai;
   if (providerBaseUrls.anthropic) claudeProcessEnv.ANTHROPIC_BASE_URL = providerBaseUrls.anthropic;
+  if (providerBaseUrls.openai) copilotProcessEnv.OPENAI_BASE_URL = providerBaseUrls.openai;
+  if (providerBaseUrls.anthropic) copilotProcessEnv.ANTHROPIC_BASE_URL = providerBaseUrls.anthropic;
   const turnWallClockMs =
     (numEnvStrict("TURN_WALL_CLOCK_SEC", env.TURN_WALL_CLOCK_SEC) ?? CONFIG_DEFAULTS.turnWallClockSec) * 1000;
   const runMaxAgeMs =

@@ -173,11 +173,36 @@ function asTools(ref: ToolContextRef, options: PiToolsOptions): BridgedTool[] {
   return createPiTools(ref, options) as unknown as BridgedTool[];
 }
 
-function usageFromEvent(event: SessionEvent): LlmCallUsage | null {
+function usageFromAssistantMessage(event: SessionEvent): LlmCallUsage | null {
   const data = event.data as Record<string, unknown> | undefined;
   if (!data) return null;
   const output = typeof data.outputTokens === "number" ? data.outputTokens : 0;
   return { input: 0, output, cacheRead: 0, cacheWrite: 0, totalTokens: output, costUsd: 0 };
+}
+
+function usageFromUsageEvent(event: SessionEvent): LlmCallUsage | null {
+  const data = event.data as
+    | {
+        inputTokens?: number;
+        outputTokens?: number;
+        cacheReadTokens?: number;
+        cacheWriteTokens?: number;
+        cost?: number;
+      }
+    | undefined;
+  if (!data) return null;
+  const input = data.inputTokens ?? 0;
+  const output = data.outputTokens ?? 0;
+  const cacheRead = data.cacheReadTokens ?? 0;
+  const cacheWrite = data.cacheWriteTokens ?? 0;
+  return {
+    input,
+    output,
+    cacheRead,
+    cacheWrite,
+    totalTokens: input + output + cacheRead + cacheWrite,
+    costUsd: data.cost ?? 0,
+  };
 }
 
 interface Runtime {
@@ -252,7 +277,7 @@ export function createCopilotHarness(opts: CopilotHarnessOptions = {}): Harness 
     const sessionConfig: SessionConfig = {
       ...(model ? { model } : {}),
       streaming: true,
-      systemMessage: { mode: "customize", content: turn.systemPrompt },
+      systemMessage: { mode: "replace", content: turn.systemPrompt },
       onPermissionRequest: approveAll,
       ...(provider ? { provider } : {}),
       infiniteSessions: { enabled: false },
@@ -308,6 +333,7 @@ export function createCopilotHarness(opts: CopilotHarnessOptions = {}): Harness 
         if (turn.cancel.aborted) onCancel();
         else turn.cancel.addEventListener("abort", onCancel, { once: true });
       }
+      let lastUsage: LlmCallUsage | null = null;
       const unsubscribe = session.on((event: SessionEvent) => {
         switch (event.type) {
           case "assistant.message_delta": {
@@ -319,23 +345,34 @@ export function createCopilotHarness(opts: CopilotHarnessOptions = {}): Harness 
             break;
           }
           case "assistant.message": {
-            const data = event.data as { outputTokens?: number };
-            const usage = usageFromEvent(event);
+            const usage = usageFromAssistantMessage(event);
             if (usage && usage.output) {
               modelCalls++;
-              turn.recordModelCall({ model, inputTokens: 0, entryCount: turn.history.length });
+              const input = lastUsage?.input ?? 0;
+              turn.recordModelCall({ model, inputTokens: input, entryCount: turn.history.length });
             }
-            void data;
+            break;
+          }
+          case "assistant.usage": {
+            lastUsage = usageFromUsageEvent(event);
+            if (lastUsage && (lastUsage.output || lastUsage.input)) {
+              modelCalls++;
+              turn.recordModelCall({
+                model,
+                inputTokens: lastUsage.input + lastUsage.cacheRead + lastUsage.cacheWrite,
+                entryCount: turn.history.length,
+              });
+            }
             break;
           }
           case "model.call_failure": {
             const data = event.data as { errorMessage?: string };
-            swallow("copilot model.call_failure", new Error(data.errorMessage ?? "model call failed"));
-            break;
+            throw copilotProviderFailure(data.errorMessage ?? "copilot model call failed");
           }
           case "session.error": {
-            swallow("copilot session error", new Error(JSON.stringify(event.data)));
-            break;
+            const message =
+              (event.data as { message?: string })?.message ?? JSON.stringify(event.data);
+            throw copilotProviderFailure(message);
           }
         }
       });
@@ -357,8 +394,13 @@ export function createCopilotHarness(opts: CopilotHarnessOptions = {}): Harness 
           swallow("copilot: tape append", error);
         }
       }
+      const attachments = (turn.images ?? []).map((image) => ({
+        type: "blob" as const,
+        data: image.dataBase64,
+        mimeType: image.mimeType,
+      }));
       const response = await Promise.race([
-        session.sendAndWait({ prompt: inputText }),
+        session.sendAndWait({ prompt: inputText, ...(attachments.length ? { attachments } : {}) }),
         new Promise<never>((_, reject) => {
           if (wallMs > 0)
             timer = setTimeout(

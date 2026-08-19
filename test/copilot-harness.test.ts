@@ -76,7 +76,8 @@ test("Copilot BYOK provider routes Anthropic keys through the OpenAI-compatible 
 test("Copilot BYOK provider respects ANTHROPIC_BASE_URL override", () => {
   const provider = copilotByokProvider({
     ANTHROPIC_API_KEY: "sk-ant",
-    ANTHROPIC_BASE_URL: "https://custom.anthropic.example.com/",  });
+    ANTHROPIC_BASE_URL: "https://custom.anthropic.example.com/",
+  });
   assert.equal(provider?.type, "openai");
   assert.equal(provider?.baseUrl, "https://custom.anthropic.example.com/v1");
 });
