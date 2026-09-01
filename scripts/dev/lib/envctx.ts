@@ -9,7 +9,7 @@ export interface AssembledEnv {
   env: Record<string, string>;
   anthropicKeySource: string;
   openaiKeySource: string;
-  harness: "pi" | "mock" | "opencode" | "codex" | "claude";
+  harness: "pi" | "mock" | "opencode" | "codex" | "claude" | "copilot";
   liveEnvFile: string;
   warnings: string[];
 }
@@ -125,13 +125,22 @@ export async function assembleEnv(opts: {
     openaiKeySource = "the worktree .env";
   }
 
-  let harness: "pi" | "mock" | "opencode" | "codex" | "claude";
-  if (opts.callerEnv.HARNESS === "codex" || opts.callerEnv.HARNESS === "claude") {
+  let harness: "pi" | "mock" | "opencode" | "codex" | "claude" | "copilot";
+  if (
+    opts.callerEnv.HARNESS === "codex" ||
+    opts.callerEnv.HARNESS === "claude" ||
+    opts.callerEnv.HARNESS === "copilot"
+  ) {
     harness = opts.callerEnv.HARNESS;
     env.HARNESS = harness;
     if (harness === "codex" && !env.OPENAI_API_KEY) {
       throw new Error(
         "HARNESS=codex needs OPENAI_API_KEY (its CLI cannot do browser OAuth in a container) -- export it, or add it to the live env file or the worktree .env",
+      );
+    }
+    if (harness === "copilot" && !env.ANTHROPIC_API_KEY && !env.OPENAI_API_KEY && !env.GH_TOKEN && !env.GITHUB_TOKEN) {
+      throw new Error(
+        "HARNESS=copilot needs ANTHROPIC_API_KEY, OPENAI_API_KEY, or GH_TOKEN (for BYOK or GitHub-models auth) -- export one, or add it to the live env file or the worktree .env",
       );
     }
   } else if (env.ANTHROPIC_API_KEY) {
