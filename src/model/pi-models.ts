@@ -192,12 +192,9 @@ export function defaultModelForHarness(
   providers?: ModelProviderAvailability,
 ): string {
   if (configured && modelSupportedByHarness(configured, harness)) return configured;
-  const preferred =
-    harness === "codex"
-      ? DEFAULT_CODEX_MODEL_ID
-      : harness === "copilot"
-        ? DEFAULT_COPILOT_MODEL_ID
-        : DEFAULT_AGENT_MODEL_ID;
+  let preferred = DEFAULT_AGENT_MODEL_ID;
+  if (harness === "codex") preferred = DEFAULT_CODEX_MODEL_ID;
+  else if (harness === "copilot") preferred = DEFAULT_COPILOT_MODEL_ID;
   if (!providers || modelServiceable(preferred, providers)) return preferred;
   const servable = SELECTABLE_BASE_MODELS.find(
     (model) => modelSupportedByHarness(model.id, harness) && modelServiceable(model.id, providers),

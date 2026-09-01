@@ -6,6 +6,7 @@ import {
   approveAll,
   CopilotClient,
   defineTool,
+  RuntimeConnection,
   type CopilotSession,
   type ProviderConfig,
   type SessionConfig,
@@ -230,17 +231,13 @@ export function createCopilotHarness(opts: CopilotHarnessOptions = {}): Harness 
       const jail = mkdtempSync(join(tmpdir(), "qm-copilot-"));
       const sourceEnv = opts.env ?? {};
       const childEnv = copilotChildEnv(sourceEnv, jail);
+      const gitHubToken = sourceEnv.GH_TOKEN ?? sourceEnv.GITHUB_TOKEN ?? sourceEnv.COPILOT_GITHUB_TOKEN;
       const client = new CopilotClient({
+        ...(opts.binaryPath ? { connection: RuntimeConnection.forStdio({ path: opts.binaryPath }) } : {}),
         workingDirectory: jail,
         env: childEnv,
-        useLoggedInUser: !sourceEnv.GH_TOKEN && !sourceEnv.GITHUB_TOKEN && !sourceEnv.COPILOT_GITHUB_TOKEN,
-        ...(sourceEnv.GH_TOKEN
-          ? { gitHubToken: sourceEnv.GH_TOKEN }
-          : sourceEnv.GITHUB_TOKEN
-            ? { gitHubToken: sourceEnv.GITHUB_TOKEN }
-            : sourceEnv.COPILOT_GITHUB_TOKEN
-              ? { gitHubToken: sourceEnv.COPILOT_GITHUB_TOKEN }
-              : {}),
+        useLoggedInUser: !gitHubToken,
+        ...(gitHubToken ? { gitHubToken } : {}),
       });
       await client.start();
       runtime = { client, jail };
